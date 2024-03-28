@@ -4,6 +4,7 @@ This script does the following:
 - Multiplies all pitch values by 6 so they sound the same as in FL
 - Converts velocity and volume events to the DK64 linear curve (as opposed to FL's exponential curve)
 Note: this probably needs more fine tuning
+- Removes unrecognized MIDI events
 '''
 
 from mido import MidiFile
@@ -103,15 +104,22 @@ def remove_unrecognized_messages(midi: MidiFile):
     accepted_messages = ["note_off", "note_on", "control_change", "program_change", "pitchwheel"]
     for track in midi.tracks:
         filtered_messages = []
-        for msg in track:
+        for i in range(len(track)):
+            msg = track[i]
+            good = False
             if msg.is_meta:
-                filtered_messages.append(msg)
+                good = True
             elif msg.type in accepted_messages:
                 if msg.type != "control_change":
-                    filtered_messages.append(msg)
+                    good = True
                 else:
                     if msg.control in valid_CCs.values():
-                        filtered_messages.append(msg)
+                        good = True
+            if good:
+                filtered_messages.append(msg)
+            else:
+                if i < len(track) - 1:
+                    track[i + 1].time += msg.time
         track[:] = filtered_messages
 
 
@@ -120,8 +128,7 @@ def clean_midi(midi_file: str):
     remove_empty_track(midi)
     move_tempo(midi)
     fix_pitch_and_volumes(midi)
-    #problematic at the moment
-    #remove_unrecognized_messages(midi)
+    remove_unrecognized_messages(midi)
     midi.save(midi_file.replace(".mid", "_adjusted.mid"))
 
 
